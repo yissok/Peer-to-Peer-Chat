@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Chat page</title>
+    <script src="signalingChannelFactory.js"></script>
+    <script src="caller.js"></script>
+    <script language="javascript" type="text/javascript">
+        
+        /*
+         * temporary ID on creation of page (increasing indexes will be assigned
+         * to each page, e.g. : 0, 1, 2, ... , n)
+         */
+        var CALLER_ID = 0;
+        window.addEventListener("load", function()
+        {
+            var received = document.getElementById('received');
+            /*
+             * The following function appends new text in the "received" paragraph once it
+             * is received from the stream
+             */
+            initCaller(function(message)
+            {
+                var newText = document.createTextNode(message);
+                received.appendChild(newText);
+                var br = document.createElement("br");
+                received.appendChild(br);
+            });
+            
+            
+            /*
+             * The following function is a choice I made after reading the instructions, it said
+             * "broadcast not needed", however I wanted to do it anyway, first because not doing
+             * it would have required more components on the page and secondly, thanks to recursion,
+             * it makes code simpler.
+             * What this function does is sending the message to all other peers; more specifically
+             * it gets the list of connected clients and passes that number and the message to
+             * a function (see comments below).
+             */
+            document.getElementById("send").onclick= function(){
+                var message = document.getElementById('message').value;
+                var IDlist=JSON.parse(localStorage.getItem("IDset"));
+                var howManyPages=IDlist.length-1;
+                recursiveTimeouts(howManyPages,message);
+                
+            };
+            
+            
+            /*
+             * This function is needed because I can't connect to multiple peers simultaneously, I
+             * need to get to each one of them separately; the timeout is to wait for the 
+             * rtcDataChannel to open.
+             * More in detail, this function calls "startCommunication" in caller.js, it waits
+             * a while (or else the message will not get through) and then sends the message directly
+             * to the selected peer; after that, still inside the timeout the function itself is
+             * called once again thus recreating the same instruction set and timer structure. Thanks
+             * to the index "i" the sending peer can tell when he has sent his message to everyone. If
+             * he finds himself in the list it skips itself.
+             */
+            function recursiveTimeouts(i,message)
+            {
+                if(i==CALLER_ID)
+                {
+                    i--;
+                }
+                if(i>=0)
+                {
+                    startCommunication(i);
+                    i--;
+                    setTimeout(function()
+                    {
+                        channel.send(message);
+                        recursiveTimeouts(i,message)
+                    }, 100);
+                }
+            }
+        }, false);
+        
+        
+        
+    </script>
+</head>
+<body id="myPage">
+    <h2>Chat</h2>
+    <textarea id="message"></textarea>
+    <p id="received"></p>                               <!--This paragraph contains the concatenated characters sent by other users-->
+    <button id="send">Send message to ALL</button>
+    <p id="logMessages"></p>                            <!--This paragraph shows the page ID-->
+    <p id="otherPages"></p>                             <!--This paragraph shows the list of peers connected (their ID)-->
+</body>
+</html>
